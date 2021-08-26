@@ -3,9 +3,10 @@ import './App.css';
 import Wallet from '../../';
 import {
   Connection,
-  SystemProgram,
   Transaction,
   clusterApiUrl,
+  TransactionInstruction,
+  PublicKey
 } from '@solana/web3.js';
 
 function toHex(buffer: Buffer) {
@@ -20,7 +21,7 @@ function App(): React.ReactElement {
     setLogs((logs) => [...logs, log]);
   }
 
-  const network = clusterApiUrl('devnet');
+  const network = clusterApiUrl('mainnet-beta');
   const [providerUrl, setProviderUrl] = useState('https://www.sollet.io');
   const connection = useMemo(() => new Connection(network), [network]);
   const urlWallet = useMemo(
@@ -67,12 +68,30 @@ function App(): React.ReactElement {
       if (!pubkey || !selectedWallet) {
         throw new Error('wallet not connected');
       }
+
+      const data = Buffer.from("b712469c946da122", "hex")
+
+      const keys = [
+        { pubkey: new PublicKey('4oSUX8WYDEobr6bbrjRHvpJW1Pas4Nx3aRnYVfdDryWH'), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey('5FJnNy8RT9hBLHD9RX5X97nqpVNfK8tgGy5JA5YXkSkY'), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey('4cNDeQwtZzeFABT9UZiJcT1HtgVnby6TTFQDvi7bLRZy'), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey('DTNWZMq7pJGGwkni4HfQuGJArTKQj7Q5ssLYLvAPBgrZ'), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey('BP5iZ7u7L6V2Sf89WNqqq8pqPFX1Xj6cAgA5qQ955PNB'), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey('CUY2VmyW7hG7wumtJdAfuFHht3AD96srQMcDHNhsqznc'), isSigner: true, isWritable: true },
+        { pubkey: new PublicKey('GoyNqk3sbD1UWShS78t3h6f4XoCjLkwB2C2BtV8gsoxY'), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey('8w2nzeswedrRzCEQRtQsZBRBeJFUfGFkkKRnTFUfBbSm'), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey('SysvarC1ock11111111111111111111111111111111'), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false },
+      ];
+
+
       const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: pubkey,
-          toPubkey: pubkey,
-          lamports: 100,
-        }),
+        new TransactionInstruction({
+          keys,
+          programId: new PublicKey('D53iWCLobVZ9c3grAR19QFruvfieS39VubXUWdSsSWSW'),
+          data
+        })
       );
       addLog('Getting recent blockhash');
       transaction.recentBlockhash = (
@@ -82,9 +101,15 @@ function App(): React.ReactElement {
       transaction.feePayer = pubkey;
       const signed = await selectedWallet.signTransaction(transaction);
       addLog('Got signature, submitting transaction');
-      const signature = await connection.sendRawTransaction(signed.serialize());
+      const signature = await connection.sendRawTransaction(
+        signed.serialize(),
+        {
+          skipPreflight: true,
+          preflightCommitment: 'confirmed'
+        }
+      );
       addLog('Submitted transaction ' + signature + ', awaiting confirmation');
-      await connection.confirmTransaction(signature, 'singleGossip');
+      await connection.confirmTransaction(signature, 'confirmed');
       addLog('Transaction ' + signature + ' confirmed');
     } catch (e) {
       console.warn(e);
